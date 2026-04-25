@@ -82,16 +82,13 @@ def route_after_assistant(state: AgentState):
     tool_calls = getattr(last_message, "tool_calls", [])
     
     if tool_calls:
-        # Check if LLM is trying to download
         is_download_call = any(tc["name"] == "download_iso" for tc in tool_calls)
         
-        # Agar download call hai aur abhi tak pucha nahi, toh interrupt pe bhejo
         if is_download_call and not state.get("asked_for_download"):
             return "ask_user"
         
         return "tools"
 
-    # Agar fetch_iso ka output aa gaya hai aur abhi tak pucha nahi hai
     has_links = any(isinstance(m, ToolMessage) and m.name == "fetch_iso" for m in messages)
     if has_links and not state.get("asked_for_download"):
         return "ask_user"
@@ -125,12 +122,9 @@ if __name__ == "__main__":
         config=config
     )
     
-    # Assistant ki baatein print karo
     print(f"\nAssistant: {result['messages'][-1].content}\n")
 
-    # Agar graph interrupt par ruka hai (i.e. links mil gaye hain)
     user_choice = input("Do you want to download automatically? (yes/no): ")
     
-    # Resume with user's choice
     final_result = graph.invoke(Command(resume=user_choice), config=config)
     print(f"\nAssistant: {final_result['messages'][-1].content}")
