@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 
 import {
@@ -11,27 +12,35 @@ import {
 
 export default function Navbar() {
   return (
-    <nav
-      className="flex items-center justify-between px-6 py-3 border-b w-full"
-    >
-      <NavigationMenu>
-        <NavigationMenuList>
+    <nav className="flex items-center justify-between px-6 py-3 border-b w-full">
+      <NavigationMenu className="w-full">
+        <NavigationMenuList className="w-full">
           <NavigationMenuItem>
             <NavigationMenuTrigger>Agents</NavigationMenuTrigger>
-            <NavigationMenuContent>
+            <NavigationMenuContent className="min-w-47.5">
               {/*{ISO AGENT LINK}
                 {WEB SCRAPER AGENT LINK}*/}
               <NavigationMenuLink asChild>
-                <Link href="/docs" className="text-2xl">Agent-1</Link>
+                <Link href="/web-scraper-agent" className="text-2xl">
+                  Web-Scraper
+                </Link>
               </NavigationMenuLink>
             </NavigationMenuContent>
           </NavigationMenuItem>
 
           <NavigationMenuItem>
-            <Link href="/" className="text-xl">GitHub</Link> 
+            <Link
+              href="https://github.com/RAJTripathi3030/Custom-Agents"
+              className="text-xl"
+            >
+              GitHub
+            </Link>
           </NavigationMenuItem>
         </NavigationMenuList>
       </NavigationMenu>
+      <Link href="/" className="text-xl">
+        Hubble
+      </Link>
     </nav>
   );
 }
