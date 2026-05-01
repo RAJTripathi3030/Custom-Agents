@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { Key, Lightbulb } from "lucide-react"
 
 export default function WebScraperAgentPage() {
   return (
@@ -31,7 +30,6 @@ export default function WebScraperAgentPage() {
       >
         <ResizablePanel defaultSize={50}>
           <div className="flex flex-col h-[300px] p-6 gap-4">
-            <Key className="absolute bottom-10 left-55 w-52 h-52 text-muted-foreground/12" />
                 <span className="font-semibold text-lg text-amber-600">Getting API Keys</span>
                 <ol className="flex flex-col gap-3 text-sm text-muted-foreground list-none">
                     <li>
@@ -54,7 +52,6 @@ export default function WebScraperAgentPage() {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={50}>
           <div className="flex flex-col h-[300px] p-6 gap-4">
-            <Lightbulb className="absolute bottom-10 right-55 w-52 h-52 text-muted-foreground/12" />
                 <span className="font-semibold text-lg text-amber-600">Usage Tips</span>
                 <ol className="flex flex-col gap-3 text-sm text-muted-foreground list-none">
                     <li>
