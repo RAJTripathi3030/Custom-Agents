@@ -14,8 +14,6 @@ from langchain_groq import ChatGroq
 # Load API keys from .env in the project root
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-os.environ["LANGSMITH_TRACING"] = "true"
-os.environ["LANGSMITH_PROJECT"] = "web-scraper-agent"
 """
 Defining the state of agent:
 I use the MessagesState class provided by langgraph itself, it
