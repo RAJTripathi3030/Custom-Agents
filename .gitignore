@@ -5,7 +5,7 @@ myenv/
 .env
 
 # distro-db is a separate repo
-ISO Agent/distro-db/
+ISOAgent/distro-db/
 
 # Python
 __pycache__/

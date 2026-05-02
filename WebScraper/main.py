@@ -55,31 +55,30 @@ def web_scraper_tool(urls: list[str]) -> str:
 
 tools = [web_scraper_tool]
 
-model = ChatGroq(model="llama-3.1-8b-instant", api_key=SecretStr(os.environ["GROQ_API_KEY"]))
-model_with_tool = model.bind_tools(tools)
+sys_msg = SystemMessage(content="You are a helpful assistant that scrapes URLs and returns the full extracted content. Always return the complete scraped text, never just confirm that scraping was done. If the text is too long to display then display most of the content and mention that the full content is too long to display.")   
 
-sys_msg = SystemMessage(content = "You are a helpful assistant that scrapes the content of the URLs it is given.")
+def run_agent(tavily_api_key: str, groq_api_key: str, scrape_url: str):
+    os.environ["TAVILY_API_KEY"] = tavily_api_key
+    os.environ["GROQ_API_KEY"] = groq_api_key
+    
+    model = ChatGroq(model="llama-3.1-8b-instant", api_key=SecretStr(groq_api_key))
+    model_with_tool = model.bind_tools(tools)
+    
+    def assistant(state: AgentState):
+        response = model_with_tool.invoke([sys_msg] + state["messages"])
+        return {"messages" : [response]}
+    
+    builder = StateGraph(AgentState)
+    builder.add_node("assistant", assistant)
+    builder.add_node("tools", ToolNode(tools))
 
-def assistant(state: AgentState):
-    response = model_with_tool.invoke([sys_msg] + state["messages"])
-    return {"messages" : [response]}
-
-
-
-builder = StateGraph(AgentState)
-
-builder.add_node("assistant", assistant)
-builder.add_node("tools", ToolNode(tools))
-
-builder.add_edge(START, "assistant")
-builder.add_conditional_edges("assistant", tools_condition)
-builder.add_edge("tools", "assistant")
-
-graph = builder.compile()
-print(graph.get_graph(xray=True).draw_mermaid()) # This gives a syntax of the mermaid graph, copy and paste it in mermaid.live to see the graph
-
-message = HumanMessage(content="Scrape the URLs: [https://en.wikipedia.org/wiki/Football, https://en.wikipedia.org/wiki/Deep_learning]")
-graph_response = graph.invoke({"messages": [message]})
-
-for m in graph_response["messages"]:
-    m.pretty_print()
+    builder.add_edge(START, "assistant")
+    builder.add_conditional_edges("assistant", tools_condition)
+    builder.add_edge("tools", "assistant")
+    
+    graph = builder.compile()
+    
+    message = HumanMessage(content=f"Scrape this URL and return all the extracted content: {scrape_url}. And if the content is too long then just show the important parts while mentioning that the full content is too long to display.")
+    graph_response = graph.invoke({"messages": [message]})
+    
+    return graph_response["messages"][-1].content
