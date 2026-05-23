@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-
 import httpx
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -22,8 +21,15 @@ class AgentState(MessagesState):
 
 def fetch_iso(distro_name: str) -> str:
     """Linux distro ka ISO download link nikalne ke liye use karo."""
-    response = httpx.get("https://raw.githubusercontent.com/RAJTripathi3030/distro-db/master/db.json")
-    data = response.json()
+    db_path = Path(__file__).resolve().parent / "distro-db" / "db.json"
+    if db_path.exists():
+        import json
+        with open(db_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        response = httpx.get("https://raw.githubusercontent.com/RAJTripathi3030/distro-db/master/db.json")
+        print(response.status_code, response.text)
+        data = response.json()
     distro = data.get(distro_name.lower())
     if not distro:
         return f"{distro_name}'s ISO link is not available."
