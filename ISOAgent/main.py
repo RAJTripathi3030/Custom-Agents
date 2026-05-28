@@ -1,136 +1,199 @@
 import os
-from pathlib import Path
+import json
 import httpx
-from dotenv import load_dotenv
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.runnables.config import RunnableConfig
+from pathlib import Path
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
-from langgraph.types import Command, interrupt
 from pydantic import SecretStr
 
-# API Key load
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+DB_PATH = Path(__file__).resolve().parent / "distro-db" / "db.json"
 
-class AgentState(MessagesState):
-    asked_for_download: bool
+# Module-level checkpointer — persists conversation state across API requests
+# so multi-turn chat works correctly within a server session.
+_global_checkpointer = MemorySaver()
 
-# ---TOOLS-------------------------------------------------------------------
+
+# ── TOOLS ────────────────────────────────────────────────────────────────────
 
 def fetch_iso(distro_name: str) -> str:
-    """Linux distro ka ISO download link nikalne ke liye use karo."""
-    db_path = Path(__file__).resolve().parent / "distro-db" / "db.json"
-    if db_path.exists():
-        import json
-        with open(db_path, "r", encoding="utf-8") as f:
+    """
+    Look up ISO download links for a Linux distribution from the local database.
+    Use lowercase keys such as: ubuntu, fedora, debian, arch, linuxmint, manjaro,
+    kali, popos, nixos, alpine, rocky, almalinux, opensuse-tumbleweed, endeavouros,
+    tails, parrot, mxlinux, voidlinux, freebsd, proxmox, truenas, etc.
+    For variants try: ubuntu-22, kali-live, debian-live, opensuse-leap, linuxmint-mate.
+    """
+    try:
+        with open(DB_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-    else:
-        response = httpx.get("https://raw.githubusercontent.com/RAJTripathi3030/distro-db/master/db.json")
-        print(response.status_code, response.text)
-        data = response.json()
-    distro = data.get(distro_name.lower())
-    if not distro:
-        return f"{distro_name}'s ISO link is not available."
-    urls = distro["urls"]
-    return "\n".join([f"{i + 1}. {url}" for i, url in enumerate(urls)])
+    except FileNotFoundError:
+        return "Local ISO database not found. Please ensure distro-db/db.json exists."
 
-def download_iso(download_url: str) -> str:
-    """Direct HTTP URL se ISO file download karne ke liye."""
-    filename = download_url.split("/")[-1] or "download.iso"
-    print(f"\nStarting download: {filename}")
-    with httpx.stream("GET", download_url, follow_redirects=True) as response:
-        total = int(response.headers.get("content-length", 0))
-        downloaded = 0
-        with open(filename, "wb") as f:
-            for chunk in response.iter_bytes(chunk_size=8192):
-                f.write(chunk)
-                downloaded += len(chunk)
-                if total:
-                    pct = downloaded / total * 100
-                    print(f"\rProgress: {pct:.1f}%", end="", flush=True)
-    return f"Download complete! Saved as {filename}"
+    key = distro_name.strip().lower()
+    entry = data.get(key)
 
-tools = [fetch_iso, download_iso]
+    if not entry:
+        # Fuzzy match: find keys containing the query string
+        matches = [k for k in data.keys() if key in k or k.startswith(key)]
+        if matches:
+            entry = data[matches[0]]
+            key = matches[0]
+        else:
+            available = ", ".join(list(data.keys())[:20])
+            return (
+                f"'{distro_name}' not found in local database. "
+                f"Some available keys: {available}..."
+            )
 
-# ---MODEL-------------------------------------------------------------------
+    urls: list[str] = entry.get("urls", [])
+    name: str = entry.get("name", key)
 
-model = ChatGroq(model="llama-3.3-70b-versatile", api_key=SecretStr(os.environ["GROQ_API_KEY"]))
-model_with_tool = model.bind_tools(tools)
-sys_msg = SystemMessage(
-    content="You are a helpful assistant that finds Linux ISO download links."
-            "You first ask the user that which distro they want, then you go fetch it's links and display those links."
-            "After that you make an interrupt and ask the user whether they want to download it here or just be left alone with the links."
-            "Also if the user enters some input that does not provide any clue to any Linux Distributions then simply do not move forward and tell them to tell clearly and also don't ask for downloading."
+    if not urls:
+        return f"No download URLs found for '{name}'."
+
+    lines = [f"Found {len(urls)} ISO link(s) for {name} (key: '{key}'):"]
+    for i, url in enumerate(urls, 1):
+        lines.append(f"{i}. {url}")
+    return "\n".join(lines)
+
+
+def validate_url(url: str) -> str:
+    """
+    Check whether an ISO download URL is reachable and alive.
+    Use this on direct .iso or .img file URLs — not on HTML download pages,
+    SourceForge /download redirectors, or torrent files.
+    """
+    try:
+        r = httpx.head(
+            url,
+            follow_redirects=True,
+            timeout=6,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; HubbleBot/1.0)"},
+        )
+        if r.status_code == 200:
+            cl = r.headers.get("content-length", "")
+            size_str = f" · {int(cl) // 1_048_576} MB" if cl.isdigit() else ""
+            final_url = str(r.url)
+            truncated = final_url if len(final_url) <= 80 else final_url[:77] + "..."
+            return f"✓ alive{size_str} → {truncated}"
+        elif r.status_code in (301, 302, 307, 308):
+            loc = r.headers.get("location", "unknown")
+            return f"↪ redirects → {loc[:80]}"
+        else:
+            return f"✗ HTTP {r.status_code}"
+    except httpx.TimeoutException:
+        return "✗ timed out (6 s) — server may be slow or link may be invalid"
+    except Exception as e:
+        return f"✗ {type(e).__name__}: {str(e)[:60]}"
+
+
+def search_web_for_iso(distro_name: str) -> str:
+    """
+    Search online for a Linux distro's ISO download page when it is NOT in the
+    local database. Checks DistroWatch and common official URL patterns.
+    """
+    results: list[str] = []
+    slug = distro_name.strip().lower().replace(" ", "").replace("-", "")
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; HubbleBot/1.0)"}
+
+    # 1. Try DistroWatch
+    try:
+        dw_url = f"https://distrowatch.com/table.php?distribution={slug}"
+        r = httpx.get(dw_url, timeout=8, follow_redirects=True, headers=headers)
+        if r.status_code == 200 and "error" not in r.text[:300].lower():
+            results.append(f"DistroWatch page: {dw_url}")
+    except Exception:
+        pass
+
+    # 2. Try common official URL patterns
+    candidates = [
+        f"https://{slug}linux.org/download",
+        f"https://{slug}.org/download",
+        f"https://get{slug}.com",
+        f"https://{slug}.com/download",
+        f"https://www.{slug}.org/download",
+    ]
+    for url in candidates:
+        try:
+            r = httpx.head(url, timeout=4, follow_redirects=True, headers=headers)
+            if r.status_code in (200, 301, 302, 307):
+                results.append(f"Official download page likely: {url}")
+                break
+        except Exception:
+            continue
+
+    if results:
+        return (
+            "Web search results:\n"
+            + "\n".join(results)
+            + "\n\nVisit these pages to find direct ISO links."
+        )
+    return (
+        f"Could not automatically locate online sources for '{distro_name}'. "
+        f"Try searching '{distro_name} linux iso download' in your browser."
+    )
+
+
+tools = [fetch_iso, validate_url, search_web_for_iso]
+
+SYS_PROMPT = SystemMessage(
+    content="""You are an expert Linux ISO assistant running inside the Hubble AI platform.
+Your role is to help users find ISO download links for Linux distributions — quickly, accurately, and autonomously.
+
+TOOLS:
+- fetch_iso(distro_name): Local DB lookup. Fast. Try this first. Use lowercase keys.
+- validate_url(url): HTTP HEAD check on a direct .iso/.img URL. Use ONLY on direct file URLs, NOT on HTML pages or SourceForge /download redirectors.
+- search_web_for_iso(distro_name): Online fallback when the distro isn't in the local DB.
+
+BEHAVIOR RULES:
+1. When the user names a distro → call fetch_iso immediately. Do not ask for clarification.
+2. After fetching links → validate_url on direct .iso/.img links only (skip HTML pages, torrent links, download manager URLs).
+3. If fetch_iso returns "not found" → call search_web_for_iso.
+4. If the user describes a use case (e.g. "lightweight", "gaming", "privacy-focused", "beginner-friendly") → reason and pick the 1-2 best matching distros, then fetch them.
+5. Multi-distro comparisons → fetch both, summarize key differences briefly.
+6. Follow-up questions (e.g. "give me the minimal version", "what about Fedora instead") → use context from previous messages.
+
+OUTPUT FORMAT:
+- Be concise. After tool calls, write a short, clean summary.
+- Number the links clearly.
+- Show validation status inline: ✓ alive / ✗ broken / ↪ redirect.
+- If a link is broken, note it and suggest the fallback URL or official site.
+- Do NOT lecture. Do NOT add disclaimers. Just give the user what they asked for."""
 )
 
-# ---NODES-------------------------------------------------------------------
 
-def assistant(state: AgentState):
-    response = model_with_tool.invoke([sys_msg] + state["messages"])
-    return {"messages": [response]}
+# ── GRAPH FACTORY ─────────────────────────────────────────────────────────────
 
-def ask_user_node(state: AgentState):
-    user_choice = interrupt("Do you want to download automatically? (yes/no): ")
-    if user_choice.strip().lower() in ("yes", "y"):
-        msg = HumanMessage(content="Yes, please download it for me.")
-    else:
-        msg = HumanMessage(content="No, I will do it manually. Goodbye!")
-    return {"messages": [msg], "asked_for_download": True}
-
-# ---STRICT ROUTING-----------------------------------------------------------
-
-def route_after_assistant(state: AgentState):
-    messages = state["messages"]
-    last_message = messages[-1]
-    
-    tool_calls = getattr(last_message, "tool_calls", [])
-    
-    if tool_calls:
-        is_download_call = any(tc["name"] == "download_iso" for tc in tool_calls)
-        
-        if is_download_call and not state.get("asked_for_download"):
-            return "ask_user"
-        
-        return "tools"
-
-    has_links = any(isinstance(m, ToolMessage) and m.name == "fetch_iso" for m in messages)
-    if has_links and not state.get("asked_for_download"):
-        return "ask_user"
-    
-    return "__end__"
-
-# ---GRAPH---------------------------------------------------------------------
-
-builder = StateGraph(AgentState)
-builder.add_node("assistant", assistant)
-builder.add_node("tools", ToolNode(tools))
-builder.add_node("ask_user", ask_user_node)
-
-builder.add_edge(START, "assistant")
-builder.add_conditional_edges("assistant", route_after_assistant)
-builder.add_edge("tools", "assistant")
-builder.add_edge("ask_user", "assistant")
-
-checkpointer = MemorySaver()
-graph = builder.compile(checkpointer=checkpointer)
-
-# ---RUNNER-------------------------------------------------------------------
-
-if __name__ == "__main__":
-    distro = input("Tell me which distro ISO you need: ")
-    config: RunnableConfig = {"configurable": {"thread_id": "iso_session_1"}}
-
-    # Initial invoke - initial state pass karna zaroori hai
-    result = graph.invoke(
-        {"messages": [HumanMessage(content=distro)], "asked_for_download": False}, 
-        config=config
+def create_graph(groq_api_key: str):
+    """
+    Create and compile a LangGraph graph wired to the given Groq API key.
+    Uses the module-level _global_checkpointer so thread state persists
+    across multiple API calls with the same thread_id.
+    """
+    model = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        api_key=SecretStr(groq_api_key),
     )
-    
-    print(f"\nAssistant: {result['messages'][-1].content}\n")
+    model_with_tools = model.bind_tools(tools)
 
-    user_choice = input("Do you want to download automatically? (yes/no): ")
-    
-    final_result = graph.invoke(Command(resume=user_choice), config=config)
-    print(f"\nAssistant: {final_result['messages'][-1].content}")
+    def assistant(state: MessagesState):
+        response = model_with_tools.invoke([SYS_PROMPT] + state["messages"])
+        return {"messages": [response]}
+
+    def route_after_assistant(state: MessagesState):
+        last = state["messages"][-1]
+        if getattr(last, "tool_calls", []):
+            return "tools"
+        return "__end__"
+
+    builder = StateGraph(MessagesState)
+    builder.add_node("assistant", assistant)
+    builder.add_node("tools", ToolNode(tools))
+    builder.add_edge(START, "assistant")
+    builder.add_conditional_edges("assistant", route_after_assistant)
+    builder.add_edge("tools", "assistant")
+
+    return builder.compile(checkpointer=_global_checkpointer)

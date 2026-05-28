@@ -22,7 +22,7 @@ const agents = [
     name: "ISO Agent",
     tagline: "Find and validate Linux distro ISO download links automatically.",
     tools: ["LangGraph", "FastAPI"],
-    status: "coming-soon" as const,
+    status: "active" as const,
     href: "/iso-agent",
   },
 ];

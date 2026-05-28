@@ -88,6 +88,22 @@
   }
 }
 
+@layer utilities {
+  /* macOS-style glass navbar — pure CSS, no JS flash */
+  .navbar-glass {
+    background: oklch(1 0 0 / 85%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid oklch(0.922 0 0);
+  }
+  .dark .navbar-glass {
+    background: oklch(0.145 0 0 / 85%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid oklch(1 0 0 / 10%);
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-mono);
   --font-mono: var(--font-mono);
