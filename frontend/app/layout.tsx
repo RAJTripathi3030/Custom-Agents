@@ -1,26 +1,49 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { Toaster } from "sonner";
+import ScrollToTop from "@/components/ScrollToTop";
 
-const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Hubble — AI Agent Platform",
+  title: {
+    default: "Hubble — AI Agent Platform",
+    template: "%s | Hubble",
+  },
   description:
-    "Automate tasks with powerful AI agents. Web scraping, ISO management, and more — all from a single platform.",
+    "Automate real-world tasks with powerful AI agents. Web scraping, code generation, ISO management, SQL generation, regex building — all from a single platform.",
+  keywords: ["AI agents", "automation", "web scraper", "code generator", "LangGraph", "Groq"],
+  authors: [{ name: "RAJ Tripathi" }],
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "Hubble",
+    title: "Hubble — AI Agent Platform",
+    description: "Automate real-world tasks with powerful AI agents.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hubble — AI Agent Platform",
+    description: "Automate real-world tasks with powerful AI agents.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -29,22 +52,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
-      <html
-        lang="en"
-        suppressHydrationWarning
-        className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-mono", jetbrainsMono.variable)}
-      >
-        <body
-          className=" flex flex-col"
-        >
-          <ThemeProvider>
-            <Navbar />
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={cn("h-full", inter.variable, jetbrainsMono.variable)}
+    >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
+      <body className="flex flex-col min-h-screen antialiased">
+        <ThemeProvider>
+          <Navbar />
+          <main className="flex-1 page-fade">
             {children}
-          </ThemeProvider>
-        </body>
-      </html>
-    </>
-   
+          </main>
+          <Toaster position="top-right" richColors closeButton toastOptions={{ duration: 4000 }} />
+          <ScrollToTop />
+        </ThemeProvider>
+      </body>
+    </html>
   );
 }

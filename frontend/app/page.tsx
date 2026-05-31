@@ -1,167 +1,303 @@
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+"use client";
 
-const agents = [
-  {
-    name: "Web Scraper Agent",
-    tagline: "Extract structured data from any webpage using natural language.",
-    tools: ["Tavily", "Groq", "LangGraph"],
-    status: "active" as const,
-    href: "/web-scraper-agent",
-  },
-  {
-    name: "ISO Agent",
-    tagline: "Find and validate Linux distro ISO download links automatically.",
-    tools: ["LangGraph", "FastAPI"],
-    status: "active" as const,
-    href: "/iso-agent",
-  },
-];
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { AgentCard } from "@/components/AgentCard";
+import { agents, allCategories, type AgentCategory } from "@/lib/agentRegistry";
+import { Search, ArrowRight, Bot, Zap, Shield, Code2 } from "lucide-react";
 
 const steps = [
   {
-    number: "1",
-    title: "Enter your API keys",
-    description: "Provide your Tavily and Groq API keys. They're sent directly to the backend and never stored.",
+    icon: <Search size={24} />,
+    title: "Find your agent",
+    description:
+      "Browse the catalog or search for the task you want to automate. Each agent is purpose-built for a specific real-world job.",
   },
   {
-    number: "2",
-    title: "Give the agent a task",
-    description: "Enter a URL or query. The agent figures out what to scrape and how to structure it.",
+    icon: <Zap size={24} />,
+    title: "Provide your input",
+    description:
+      "Give the agent what it needs — a URL, a description, a document. The agent handles all the complexity.",
   },
   {
-    number: "3",
+    icon: <ArrowRight size={24} />,
     title: "Get results instantly",
-    description: "The agent processes your request and returns clean, structured output in seconds.",
+    description:
+      "The agent processes your request and returns clean, structured output in seconds. Copy, download, or use via API.",
   },
 ];
 
+const stats = [
+  { value: "14", label: "AI Agents" },
+  { value: "100%", label: "Open Source" },
+  { value: "0", label: "Data Stored" },
+  { value: "⚡", label: "Self-hosted" },
+];
+
 export default function Home() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<AgentCategory | "All">("All");
+
+  // Featured agents — active ones first
+  const featuredAgents = agents.filter((a) => a.status === "active").slice(0, 3);
+
+  // All agents filtered by search + category
+  const filteredAgents = useMemo(() => {
+    return agents.filter((agent) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        agent.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory =
+        selectedCategory === "All" || agent.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchQuery, selectedCategory]);
+
   return (
     <div>
       {/* ─── Hero Section ─── */}
-      <section className="flex flex-col items-center justify-center px-4 md:px-6 pt-20 pb-12 md:pt-40 md:pb-28">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 border border-amber-600/30 rounded-full px-3 py-1 mb-6">
-          ✦ Open Source AI Agents
+      <section className="content-width pt-16 pb-12 md:pt-24 md:pb-20 flex flex-col items-center text-center">
+        <span
+          className="inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 mb-6 badge-new"
+        >
+          <Bot size={12} />
+          Open Source AI Agent Platform
         </span>
 
-        <h1 className="text-4xl sm:text-5xl md:text-7xl text-center">Hubble</h1>
+        <h1
+          className="font-bold mb-4 max-w-3xl"
+          style={{ fontSize: "clamp(32px, 5vw, 48px)", lineHeight: "1.2", color: "var(--color-text-primary)" }}
+        >
+          Automate real-world tasks<br className="hidden sm:block" />
+          <span style={{ color: "var(--color-primary)" }}> with AI agents</span>
+        </h1>
 
-        <p className="text-center max-w-xl mt-3 md:mt-4 text-muted-foreground text-base md:text-xl px-2">
-          AI Agents are a really cool and modern way of automating stuff. You
-          really gotta try them out!
+        <p
+          className="mb-8 max-w-xl"
+          style={{ fontSize: "18px", color: "var(--color-text-secondary)", lineHeight: "1.6" }}
+        >
+          Purpose-built agents for web scraping, code generation, document processing, and more.
+          No setup. No API limits. Fully open source.
         </p>
 
-        <a
-          href="#agents"
-          className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-amber-600 hover:text-amber-500 transition-colors"
-        >
-          Explore agents
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-        </a>
+        {/* Google-style search bar */}
+        <div className="w-full max-w-xl relative">
+          <Search
+            size={20}
+            className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: "var(--color-text-muted)" }}
+          />
+          <input
+            id="agent-search"
+            type="search"
+            className="search-input pl-12"
+            placeholder="Search agents — try 'scrape', 'SQL', 'regex'..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search agents"
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="flex items-center gap-4 mt-6 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+          <a href="#featured" className="hover:underline" style={{ color: "var(--color-primary)" }}>
+            Browse agents ↓
+          </a>
+          <span>·</span>
+          <a
+            href="https://github.com/RAJTripathi3030/Custom-Agents"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            View on GitHub
+          </a>
+        </div>
       </section>
 
       {/* ─── Stats Bar ─── */}
-      <section className="border-y">
-        <div className="max-w-3xl mx-auto flex items-center justify-center divide-x px-2">
-          <div className="flex-1 text-center py-5 px-4">
-            <div className="text-xl md:text-2xl font-bold">2</div>
-            <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Agents</div>
-          </div>
-          <div className="flex-1 text-center py-5 px-4">
-            <div className="text-xl md:text-2xl font-bold">✓</div>
-            <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Open Source</div>
-          </div>
-          <div className="flex-1 text-center py-5 px-4">
-            <div className="text-xl md:text-2xl font-bold">⚡</div>
-            <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Self-hosted</div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Agent Cards ─── */}
-      <section id="agents" className="max-w-3xl mx-auto px-4 md:px-6 py-12 md:py-20 lg:py-28">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-8 text-center">
-          Available Agents
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {agents.map((agent) => (
-            <Card key={agent.name} size="lg" className="flex flex-col">
-              <CardHeader>
-                <div className="flex items-center justify-between mb-1">
-                  <CardTitle className="text-base">{agent.name}</CardTitle>
-                  <span
-                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                      agent.status === "active"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    }`}
-                  >
-                    {agent.status === "active" ? "Active" : "Coming Soon"}
-                  </span>
-                </div>
-                <CardDescription>{agent.tagline}</CardDescription>
-              </CardHeader>
-
-              <CardContent className="flex-1">
-                <div className="flex flex-wrap gap-1.5">
-                  {agent.tools.map((tool) => (
-                    <span
-                      key={tool}
-                      className="text-[10px] font-medium px-2 py-0.5 rounded-sm border text-muted-foreground"
-                    >
-                      {tool}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-
-              <CardFooter>
-                <Button
-                  variant="link"
-                  size="lg"
-                  className="w-full"
-                  asChild
-                  disabled={agent.status !== "active"}
+      <section style={{ borderTop: "1px solid var(--color-border-subtle)", borderBottom: "1px solid var(--color-border-subtle)" }}>
+        <div className="content-width">
+          <div className="grid grid-cols-4 divide-x" style={{ borderColor: "var(--color-border-subtle)" }}>
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center py-5 px-2">
+                <div
+                  className="font-bold mb-0.5"
+                  style={{ fontSize: "24px", color: "var(--color-primary)" }}
                 >
-                  <Link href={agent.href}>
-                    {agent.status === "active" ? "Open Agent →" : "Coming Soon"}
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                  {stat.value}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <Separator className="max-w-3xl mx-auto mx-4 md:mx-auto" />
+      {/* ─── Featured Agents ─── */}
+      {searchQuery === "" && selectedCategory === "All" && (
+        <section id="featured" className="content-width py-16 md:py-20">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2
+                className="font-bold mb-1"
+                style={{ fontSize: "24px", color: "var(--color-text-primary)" }}
+              >
+                Featured Agents
+              </h2>
+              <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>
+                Ready to use right now
+              </p>
+            </div>
+            <Link
+              href="/agents"
+              className="flex items-center gap-1 text-sm font-medium hover:underline transition-colors"
+              style={{ color: "var(--color-primary)" }}
+            >
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {featuredAgents.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── All Agents Grid ─── */}
+      <section
+        id="agents"
+        style={{ background: "var(--color-surface-alt)" }}
+      >
+        <div className="content-width py-16 md:py-20">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <h2
+              className="font-bold"
+              style={{ fontSize: "24px", color: "var(--color-text-primary)" }}
+            >
+              {searchQuery
+                ? `Results for "${searchQuery}"`
+                : selectedCategory === "All"
+                ? "All Agents"
+                : selectedCategory}
+            </h2>
+
+            {/* Category filter pills */}
+            <div className="flex flex-wrap gap-2">
+              {(["All", ...allCategories] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat as AgentCategory | "All")}
+                  className="px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 btn-scale"
+                  style={{
+                    background:
+                      selectedCategory === cat
+                        ? "var(--color-primary)"
+                        : "var(--color-surface)",
+                    color:
+                      selectedCategory === cat
+                        ? "#fff"
+                        : "var(--color-text-secondary)",
+                    border: `1px solid ${
+                      selectedCategory === cat
+                        ? "var(--color-primary)"
+                        : "var(--color-border-subtle)"
+                    }`,
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredAgents.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="text-5xl mb-4">🔍</div>
+              <h3
+                className="font-semibold mb-2"
+                style={{ fontSize: "18px", color: "var(--color-text-primary)" }}
+              >
+                No agents found
+              </h3>
+              <p
+                className="mb-6"
+                style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}
+              >
+                Try a different search or browse all agents.
+              </p>
+              <button
+                onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }}
+                className="px-6 py-2 rounded-lg text-sm font-medium transition-all btn-scale"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "#fff",
+                }}
+              >
+                Browse all agents
+              </button>
+            </div>
+          ) : (
+            <div
+              className="grid gap-4"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              }}
+            >
+              {filteredAgents.map((agent) => (
+                <AgentCard key={agent.id} agent={agent} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ─── How It Works ─── */}
-      <section className="max-w-3xl mx-auto px-4 md:px-6 py-12 md:py-20 lg:py-28">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-10 text-center">
-          How it works
-        </h2>
+      <section className="content-width py-16 md:py-20">
+        <div className="text-center mb-12">
+          <h2
+            className="font-bold mb-3"
+            style={{ fontSize: "24px", color: "var(--color-text-primary)" }}
+          >
+            How it works
+          </h2>
+          <p style={{ fontSize: "16px", color: "var(--color-text-secondary)" }}>
+            Three steps from idea to result
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
-          {steps.map((step) => (
-            <div key={step.number} className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border text-sm font-bold mb-4">
-                {step.number}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+          {steps.map((step, i) => (
+            <div key={i} className="flex flex-col items-center text-center">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
+                style={{
+                  background: "var(--color-primary-light, #e8f0fe)",
+                  color: "var(--color-primary)",
+                }}
+              >
+                {step.icon}
               </div>
-              <h3 className="font-semibold text-sm mb-2">{step.title}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <div
+                className="text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: "var(--color-primary)" }}
+              >
+                Step {i + 1}
+              </div>
+              <h3
+                className="font-semibold mb-2"
+                style={{ fontSize: "18px", color: "var(--color-text-primary)" }}
+              >
+                {step.title}
+              </h3>
+              <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", lineHeight: "1.6" }}>
                 {step.description}
               </p>
             </div>
@@ -169,37 +305,66 @@ export default function Home() {
         </div>
       </section>
 
-      <Separator className="max-w-3xl mx-auto" />
-
-      {/* ─── Tech Stack ─── */}
-      <section className="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-16 lg:py-20">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-8 text-center">
-          Built with
-        </h2>
-        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 text-sm text-muted-foreground">
-          {["LangGraph", "Tavily", "Groq", "FastAPI", "Next.js"].map((tech) => (
-            <span key={tech} className="border rounded-sm px-3 py-1.5 text-xs font-medium">
-              {tech}
-            </span>
-          ))}
+      {/* ─── Trust / Features Strip ─── */}
+      <section
+        style={{
+          background: "var(--color-primary)",
+          color: "#fff",
+        }}
+      >
+        <div className="content-width py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
+              <Shield size={28} className="shrink-0 opacity-90" />
+              <div>
+                <div className="font-semibold text-base mb-1">Your data stays private</div>
+                <div className="text-sm opacity-80">API keys are never stored. Inputs are processed and discarded.</div>
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
+              <Code2 size={28} className="shrink-0 opacity-90" />
+              <div>
+                <div className="font-semibold text-base mb-1">Fully open source</div>
+                <div className="text-sm opacity-80">Every agent, every line of code is on GitHub. Self-host in minutes.</div>
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
+              <Zap size={28} className="shrink-0 opacity-90" />
+              <div>
+                <div className="font-semibold text-base mb-1">Powered by state-of-the-art AI</div>
+                <div className="text-sm opacity-80">Built on LangGraph, Groq, and Tavily for speed and reliability.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t">
-        <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-8 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4 text-xs text-muted-foreground">
-          <span>Built by RAJ Tripathi</span>
-          <div className="flex items-center gap-4">
-            <Link
+      <footer style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+        <div className="content-width py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2" style={{ color: "var(--color-primary)" }}>
+            <Bot size={18} />
+            <span className="font-bold text-base">Hubble</span>
+          </div>
+
+          <nav className="flex items-center gap-6 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            <Link href="/agents" className="hover:underline transition-colors">Agents</Link>
+            <Link href="/about" className="hover:underline transition-colors">About</Link>
+            <Link href="/privacy" className="hover:underline transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:underline transition-colors">Terms</Link>
+            <a
               href="https://github.com/RAJTripathi3030/Custom-Agents"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors"
+              className="hover:underline transition-colors"
             >
               GitHub
-            </Link>
-            <span>Next.js + LangGraph</span>
-          </div>
+            </a>
+          </nav>
+
+          <p style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+            © {new Date().getFullYear()} Hubble · Built by RAJ Tripathi
+          </p>
         </div>
       </footer>
     </div>

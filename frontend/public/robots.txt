@@ -1,0 +1,9 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Block API routes from indexing
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://hubble-agents.vercel.app/sitemap.xml

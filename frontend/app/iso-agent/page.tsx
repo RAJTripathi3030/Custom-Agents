@@ -1,13 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import { agents } from "@/lib/agentRegistry";
+import { AgentPageLayout } from "@/components/AgentPageLayout";
+import { Send, X } from "lucide-react";
 
 interface AgentStep {
   tool: string;
@@ -25,8 +21,6 @@ interface ChatMessage {
   isStreaming: boolean;
   isError: boolean;
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TOOL_LABELS: Record<string, string> = {
   fetch_iso: "Searching local database",
@@ -49,17 +43,17 @@ function formatInput(input: unknown): string {
 }
 
 const SUGGESTIONS = [
-  "ubuntu",
+  "ubuntu 24.04",
   "Give me something privacy-focused",
-  "I need a lightweight distro for old hardware",
+  "lightweight distro for old hardware",
   "fedora vs debian — which should I pick?",
-  "arch",
+  "arch linux",
   "kali linux",
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export default function ISOAgentPage() {
+  const agent = agents.find((a) => a.id === "iso-downloader")!;
+
   const [groqApiKey, setGroqApiKey] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -156,60 +150,32 @@ export default function ISOAgentPage() {
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id !== assistantId) return msg;
-
                 switch (event.type) {
-                  case "tool_call": {
+                  case "tool_call":
                     return {
                       ...msg,
                       steps: [
                         ...msg.steps,
-                        {
-                          tool: event.tool!,
-                          input: formatInput(event.input),
-                          status: "running" as const,
-                        },
+                        { tool: event.tool!, input: formatInput(event.input), status: "running" as const },
                       ],
                     };
-                  }
-
                   case "tool_result": {
                     const steps = [...msg.steps];
                     const idx = steps.findLastIndex(
                       (s) => s.tool === event.tool && s.status === "running"
                     );
                     if (idx >= 0) {
-                      steps[idx] = {
-                        ...steps[idx],
-                        result: event.content,
-                        status: "done",
-                      };
+                      steps[idx] = { ...steps[idx], result: event.content, status: "done" };
                     }
-                    // Collect links from tool results
                     const newLinks = extractUrls(event.content ?? "");
-                    return {
-                      ...msg,
-                      steps,
-                      links: [...new Set([...msg.links, ...newLinks])],
-                    };
+                    return { ...msg, steps, links: [...new Set([...msg.links, ...newLinks])] };
                   }
-
-                  case "answer": {
+                  case "answer":
                     return { ...msg, content: event.content ?? "" };
-                  }
-
-                  case "error": {
-                    return {
-                      ...msg,
-                      content: event.content ?? "An unknown error occurred.",
-                      isStreaming: false,
-                      isError: true,
-                    };
-                  }
-
-                  case "done": {
+                  case "error":
+                    return { ...msg, content: event.content ?? "An unknown error occurred.", isStreaming: false, isError: true };
+                  case "done":
                     return { ...msg, isStreaming: false };
-                  }
-
                   default:
                     return msg;
                 }
@@ -221,17 +187,11 @@ export default function ISOAgentPage() {
         }
       }
     } catch (e: unknown) {
-      const errMsg =
-        e instanceof Error ? e.message : "Connection failed.";
+      const errMsg = e instanceof Error ? e.message : "Connection failed.";
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId
-            ? {
-                ...msg,
-                content: errMsg,
-                isStreaming: false,
-                isError: true,
-              }
+            ? { ...msg, content: errMsg, isStreaming: false, isError: true }
             : msg
         )
       );
@@ -241,230 +201,221 @@ export default function ISOAgentPage() {
     }
   }
 
-  const isEmpty = messages.length === 0;
+  const inputStyle = {
+    border: "1px solid var(--color-border-subtle)",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    fontSize: "14px",
+    color: "var(--color-text-primary)",
+    background: "var(--color-surface)",
+    width: "100%",
+    height: "48px",
+    outline: "none",
+  } as React.CSSProperties;
 
   return (
-    <div className="flex flex-col items-center px-4 md:px-6 py-12 md:py-20 gap-6 md:gap-8 max-w-3xl mx-auto w-full">
+    <AgentPageLayout agent={agent}>
+      <div className="flex flex-col gap-5">
 
-      {/* ─── Header ─── */}
-      <div className="text-center w-full">
-        <h1 className="text-2xl md:text-3xl">ISO Agent</h1>
-        <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-xl mx-auto">
-          An autonomous agent that finds Linux ISO links, validates them live, and answers
-          follow-up questions — powered by Groq + LangGraph.
-        </p>
-      </div>
-
-      {/* ─── API Key Card ─── */}
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-amber-600">Groq API Key</CardTitle>
-          <CardDescription>
-            Required to power the LLM reasoning. Get yours at{" "}
-            <a
-              href="https://console.groq.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline text-foreground"
-            >
-              console.groq.com
-            </a>
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Input
+        {/* API Key */}
+        <div>
+          <label htmlFor="groq-api-key-input"
+            className="block text-sm font-medium mb-1.5"
+            style={{ color: "var(--color-text-primary)" }}>
+            Groq API Key
+          </label>
+          <input
             id="groq-api-key-input"
             type="password"
-            placeholder="gsk-..."
+            placeholder="gsk_..."
             value={groqApiKey}
             onChange={(e) => setGroqApiKey(e.target.value)}
+            style={inputStyle}
+            autoComplete="off"
           />
-        </CardContent>
-      </Card>
+          <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            Required to power the LLM reasoning. Get yours at{" "}
+            <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer"
+              className="underline" style={{ color: "var(--color-primary)" }}>
+              console.groq.com
+            </a>
+          </p>
+        </div>
 
-      {/* ─── Conversation Card ─── */}
-      <Card className="w-full flex flex-col">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-amber-600">Conversation</CardTitle>
+        {/* Conversation area */}
+        <div
+          className="rounded-lg overflow-hidden flex flex-col"
+          style={{ border: "1px solid var(--color-border-subtle)", minHeight: "320px" }}
+        >
+          {/* Header */}
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ background: "var(--color-surface-alt)", borderBottom: "1px solid var(--color-border-subtle)" }}
+          >
+            <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              Conversation
+            </span>
             {messages.length > 0 && (
               <button
                 onClick={() => setMessages([])}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors border border-border rounded px-2 py-0.5"
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-muted transition-colors"
+                style={{ color: "var(--color-text-secondary)" }}
               >
-                Clear
+                <X size={12} /> Clear
               </button>
             )}
           </div>
-          {isEmpty && (
-            <CardDescription>
-              Ask anything — a distro name, a use case, or a comparison.
-            </CardDescription>
-          )}
-        </CardHeader>
 
-        <CardContent className="flex flex-col gap-4">
-
-          {/* Empty state / suggestions */}
-          {isEmpty && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Try asking
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => sendMessage(s)}
-                    disabled={!groqApiKey.trim() || loading}
-                    className="text-[11px] font-mono px-2.5 py-1 rounded-sm border border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Messages */}
-          {messages.length > 0 && (
-            <div className="flex flex-col gap-5">
-              {messages.map((msg) => (
-                <div key={msg.id}>
-                  {msg.role === "user" ? (
-                    /* ── User bubble ── */
-                    <div className="flex justify-end">
-                      <div className="max-w-[80%] px-3 py-2 rounded-lg bg-muted text-sm font-mono">
-                        {msg.content}
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── Assistant bubble ── */
-                    <div className="flex flex-col gap-2">
-
-                      {/* Agent steps */}
-                      {msg.steps.length > 0 && (
-                        <div className="flex flex-col gap-1 border-l-2 border-amber-600/25 pl-3">
-                          {msg.steps.map((step, i) => (
-                            <div key={i} className="flex flex-col gap-0.5">
-                              <div className="flex items-center gap-2">
-                                {step.status === "running" ? (
-                                  <span className="text-[10px] text-muted-foreground animate-pulse">
-                                    ⟳
-                                  </span>
-                                ) : step.result?.startsWith("✗") ? (
-                                  <span className="text-[10px] text-destructive">✗</span>
-                                ) : (
-                                  <span className="text-[10px] text-emerald-600">✓</span>
-                                )}
-                                <span className="text-[11px] font-mono text-amber-600">
-                                  {TOOL_LABELS[step.tool] ?? step.tool}
-                                </span>
-                                <span className="text-[11px] font-mono text-muted-foreground truncate max-w-[220px]">
-                                  ({step.input})
-                                </span>
-                              </div>
-                              {step.result && (
-                                <p className="text-[10px] font-mono text-muted-foreground pl-4 leading-relaxed">
-                                  {/* Show a short summary of the result */}
-                                  {step.result.split("\n")[0]}
-                                  {step.result.split("\n").length > 1 &&
-                                    ` (+${step.result.split("\n").length - 1} more)`}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Streaming indicator */}
-                      {msg.isStreaming && !msg.content && msg.steps.every(s => s.status !== "running") && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono pl-1">
-                          <span className="animate-pulse">●</span>
-                          <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>●</span>
-                          <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>●</span>
-                        </div>
-                      )}
-
-                      {/* Final answer */}
-                      {msg.content && (
-                        <div
-                          className={`text-sm font-mono leading-relaxed whitespace-pre-wrap ${
-                            msg.isError ? "text-destructive" : "text-foreground"
-                          }`}
-                        >
-                          {msg.content}
-                          {msg.isStreaming && (
-                            <span className="animate-pulse text-amber-600">▊</span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Error hint */}
-                      {msg.isError && (
-                        <p className="text-[10px] text-muted-foreground font-mono pl-1">
-                          Make sure the backend is running:{" "}
-                          <code className="bg-muted px-1 rounded">
-                            uvicorn api.main:app --reload
-                          </code>
-                        </p>
-                      )}
-
-                      {/* Extracted links panel */}
-                      {msg.links.length > 0 && !msg.isStreaming && (
-                        <div className="mt-1 border rounded-sm overflow-hidden">
-                          <div className="px-3 py-1.5 border-b bg-muted/40 flex items-center justify-between">
-                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                              Download Links
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {msg.links.length} found
-                            </span>
-                          </div>
-                          <div className="divide-y">
-                            {msg.links.map((link, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center gap-2 px-3 py-2"
-                              >
-                                <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0">
-                                  {i + 1}.
-                                </span>
-                                <a
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[11px] font-mono text-foreground hover:text-amber-600 transition-colors flex-1 truncate"
-                                  title={link}
-                                >
-                                  {link}
-                                </a>
-                                <button
-                                  onClick={() => handleCopy(link)}
-                                  className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-                                >
-                                  {copied === link ? "✓" : "Copy"}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+          <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: "400px" }}>
+            {/* Empty state with suggestions */}
+            {messages.length === 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs uppercase tracking-wider font-medium" style={{ color: "var(--color-text-muted)" }}>
+                  Try asking
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => sendMessage(s)}
+                      disabled={!groqApiKey.trim() || loading}
+                      className="text-xs px-3 py-1.5 rounded-full transition-all btn-scale disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{
+                        border: "1px solid var(--color-border-subtle)",
+                        color: "var(--color-text-secondary)",
+                        background: "var(--color-surface)",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* ─── Separator ─── */}
-          {messages.length > 0 && <Separator />}
+            {/* Messages */}
+            {messages.map((msg) => (
+              <div key={msg.id}>
+                {msg.role === "user" ? (
+                  <div className="flex justify-end">
+                    <div
+                      className="max-w-[80%] px-3 py-2 rounded-lg text-sm"
+                      style={{
+                        background: "var(--color-primary)",
+                        color: "#fff",
+                      }}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {/* Steps */}
+                    {msg.steps.length > 0 && (
+                      <div
+                        className="flex flex-col gap-1 pl-3"
+                        style={{ borderLeft: "2px solid var(--color-primary-light, #1a73e820)" }}
+                      >
+                        {msg.steps.map((step, i) => (
+                          <div key={i} className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              {step.status === "running" ? (
+                                <span className="text-xs animate-pulse" style={{ color: "var(--color-text-muted)" }}>⟳</span>
+                              ) : step.result?.startsWith("✗") ? (
+                                <span className="text-xs" style={{ color: "var(--color-error)" }}>✗</span>
+                              ) : (
+                                <span className="text-xs" style={{ color: "var(--color-success)" }}>✓</span>
+                              )}
+                              <span className="text-xs font-mono" style={{ color: "var(--color-primary)" }}>
+                                {TOOL_LABELS[step.tool] ?? step.tool}
+                              </span>
+                              <span className="text-xs font-mono truncate max-w-[200px]" style={{ color: "var(--color-text-muted)" }}>
+                                ({step.input})
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-          {/* ─── Input row ─── */}
-          <div className="flex gap-2">
-            <Input
+                    {/* Streaming indicator */}
+                    {msg.isStreaming && !msg.content && (
+                      <div className="flex items-center gap-1 text-xs pl-1" style={{ color: "var(--color-text-muted)" }}>
+                        <span className="animate-pulse">●</span>
+                        <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>●</span>
+                        <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>●</span>
+                      </div>
+                    )}
+
+                    {/* Answer */}
+                    {msg.content && (
+                      <div
+                        className="text-sm leading-relaxed whitespace-pre-wrap"
+                        style={{ color: msg.isError ? "var(--color-error)" : "var(--color-text-primary)" }}
+                      >
+                        {msg.content}
+                        {msg.isStreaming && <span className="animate-pulse" style={{ color: "var(--color-primary)" }}>▊</span>}
+                      </div>
+                    )}
+
+                    {/* Download links */}
+                    {msg.links.length > 0 && !msg.isStreaming && (
+                      <div
+                        className="mt-1 rounded-lg overflow-hidden"
+                        style={{ border: "1px solid var(--color-border-subtle)" }}
+                      >
+                        <div
+                          className="px-3 py-2 flex items-center justify-between"
+                          style={{ background: "var(--color-surface-alt)", borderBottom: "1px solid var(--color-border-subtle)" }}
+                        >
+                          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--color-text-secondary)" }}>
+                            Download Links
+                          </span>
+                          <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                            {msg.links.length} found
+                          </span>
+                        </div>
+                        {msg.links.map((link, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: i < msg.links.length - 1 ? "1px solid var(--color-border-subtle)" : "none" }}>
+                            <span className="text-xs w-4 shrink-0" style={{ color: "var(--color-text-muted)" }}>{i + 1}.</span>
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono flex-1 truncate transition-colors hover:underline"
+                              style={{ color: "var(--color-primary)" }}
+                              title={link}
+                            >
+                              {link}
+                            </a>
+                            <button
+                              onClick={() => handleCopy(link)}
+                              className="shrink-0 text-xs px-2 py-0.5 rounded transition-all btn-scale"
+                              style={{
+                                border: "1px solid var(--color-border-subtle)",
+                                color: "var(--color-text-secondary)",
+                                background: "var(--color-surface)",
+                              }}
+                            >
+                              {copied === link ? "✓" : "Copy"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input row */}
+          <div
+            className="p-3 flex gap-2"
+            style={{ borderTop: "1px solid var(--color-border-subtle)", background: "var(--color-surface-alt)" }}
+          >
+            <input
               ref={inputRef}
               id="iso-chat-input"
               type="text"
@@ -482,33 +433,36 @@ export default function ISOAgentPage() {
                 }
               }}
               disabled={!groqApiKey.trim() || loading}
-              className="flex-1 font-mono text-sm"
+              className="flex-1"
+              style={{
+                border: "1px solid var(--color-border-subtle)",
+                borderRadius: "8px",
+                padding: "10px 14px",
+                fontSize: "14px",
+                color: "var(--color-text-primary)",
+                background: "var(--color-surface)",
+                outline: "none",
+              }}
             />
-            <Button
+            <button
               id="iso-send-btn"
               onClick={() => sendMessage()}
               disabled={!groqApiKey.trim() || !input.trim() || loading}
-              variant="outline"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all btn-scale disabled:opacity-50"
+              style={{ background: "var(--color-primary)", color: "#fff" }}
             >
-              {loading ? "Running..." : "Send →"}
-            </Button>
+              <Send size={14} />
+              {loading ? "Running..." : "Send"}
+            </button>
           </div>
+        </div>
 
-          {messages.length > 0 && (
-            <p className="text-[10px] text-muted-foreground text-center">
-              Multi-turn — follow up with &quot;give me the minimal version&quot; or &quot;compare with Fedora&quot;
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ─── Back link ─── */}
-      <Link
-        href="/"
-        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        ← Back to all agents
-      </Link>
-    </div>
+        {messages.length > 0 && (
+          <p className="text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
+            Multi-turn — follow up with &ldquo;give me the minimal version&rdquo; or &ldquo;compare with Fedora&rdquo;
+          </p>
+        )}
+      </div>
+    </AgentPageLayout>
   );
 }
