@@ -5,83 +5,119 @@ import { AgentPageLayout } from '@/components/AgentPageLayout';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { agents } from '@/lib/agentRegistry';
 
-export default function ResumeAnalyzerPage() {
+export default function AgentPage() {
   const agent = agents.find((a) => a.id === 'resume-analyzer')!;
-  const [resume, setResume] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
+  const [groqApiKey, setGroqApiKey] = useState('');
+  const [resume, set_resume] = useState('');
+  const [jobDesc, set_jobDesc] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [timestamp, setTimestamp] = useState<Date | undefined>();
+
+  const inputStyle = {
+    border: '1px solid var(--color-border-subtle)',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '14px',
+    color: 'var(--color-text-primary)',
+    background: 'var(--color-surface)',
+    width: '100%',
+    outline: 'none',
+    transition: 'box-shadow 150ms ease',
+  } as React.CSSProperties;
+
+  const labelStyle = {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: 'var(--color-text-primary)',
+    marginBottom: '6px',
+    display: 'block',
+  } as React.CSSProperties;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setIsError(false);
-    await new Promise((r) => setTimeout(r, 800));
-    setResult(
-      'This agent is coming soon! Check back soon or ⭐ star the GitHub repo to get notified when it launches.'
-    );
-    setTimestamp(new Date());
-    setLoading(false);
-  }
 
-  const inputStyle = {
-    border: '1px solid var(--color-border-subtle)',
-    borderRadius: '8px',
-    padding: '12px',
-    fontSize: '14px',
-    color: 'var(--color-text-primary)',
-    background: 'var(--color-surface)',
-    width: '100%',
-    resize: 'vertical' as const,
-  };
+    try {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${BASE_URL}/api/v1/agents/resume-analyzer/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groq_api_key: groqApiKey,
+          input1: resume,
+          input2: jobDesc
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.detail || data.detail || 'Request failed');
+      
+      setResult(data.data.result);
+      setIsError(false);
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : 'An unexpected error occurred.');
+      setIsError(true);
+    } finally {
+      setTimestamp(new Date());
+      setLoading(false);
+    }
+  }
 
   return (
     <AgentPageLayout agent={agent}>
-      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
-        {/* Resume field */}
-        <div className='flex flex-col gap-1.5'>
-          <label
-            htmlFor='resume-input'
-            className='text-sm font-medium'
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Your Resume / CV
-          </label>
+      <form onSubmit={handleSubmit} className='flex flex-col gap-5'>
+        
+        <fieldset className="flex flex-col gap-4 p-4 rounded-lg" style={{ border: "1px solid var(--color-border-subtle)" }}>
+          <legend className="px-1 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>API Keys</legend>
+          <div>
+            <label htmlFor="input-groq-api-key" style={labelStyle}>Groq API Key</label>
+            <input
+              id="input-groq-api-key"
+              type="password"
+              placeholder="gsk_..."
+              value={groqApiKey}
+              onChange={(e) => setGroqApiKey(e.target.value)}
+              style={inputStyle}
+              required
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Get your key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--color-primary)" }}>console.groq.com</a>
+            </p>
+          </div>
+        </fieldset>
+
+        <div>
+          <label htmlFor="input1" style={labelStyle}>Resume Content</label>
           <textarea
-            id='resume-input'
-            style={{ ...inputStyle, minHeight: '160px' }}
-            placeholder='Paste your resume text here...'
+            id="input1"
+            placeholder="Paste your resume here"
             value={resume}
-            onChange={(e) => setResume(e.target.value)}
+            onChange={(e) => set_resume(e.target.value)}
+            style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }}
             required
           />
         </div>
 
-        {/* Job description field */}
-        <div className='flex flex-col gap-1.5'>
-          <label
-            htmlFor='job-description-input'
-            className='text-sm font-medium'
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Job Description
-          </label>
+        <div>
+          <label htmlFor="input2" style={labelStyle}>Job Description (optional)</label>
           <textarea
-            id='job-description-input'
-            style={{ ...inputStyle, minHeight: '120px' }}
-            placeholder='Paste the job description you are targeting...'
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-            required
+            id="input2"
+            placeholder="Paste the job description here"
+            value={jobDesc}
+            onChange={(e) => set_jobDesc(e.target.value)}
+            style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }}
           />
         </div>
 
         <button
           type='submit'
-          disabled={loading || !resume.trim() || !jobDescription.trim()}
+          disabled={loading || !groqApiKey.trim() || !resume.trim()}
+          suppressHydrationWarning
           className='px-6 py-3 rounded-lg font-medium text-sm transition-all btn-scale self-end disabled:opacity-50 w-full sm:w-auto'
           style={{
             background: 'var(--color-primary)',
@@ -97,9 +133,10 @@ export default function ResumeAnalyzerPage() {
         <ResultsPanel
           content={result}
           isError={isError}
+          isCode={true}
           timestamp={timestamp}
-          downloadFilename='improved-resume.txt'
-          onRetry={() => handleSubmit(new Event('submit') as any)}
+          downloadFilename='result.md'
+          onRetry={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
         />
       )}
     </AgentPageLayout>

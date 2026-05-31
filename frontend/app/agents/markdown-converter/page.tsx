@@ -5,125 +5,112 @@ import { AgentPageLayout } from '@/components/AgentPageLayout';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { agents } from '@/lib/agentRegistry';
 
-export default function MarkdownConverterPage() {
+export default function AgentPage() {
   const agent = agents.find((a) => a.id === 'markdown-converter')!;
-  const [markdownInput, setMarkdownInput] = useState('');
-  const [outputFormat, setOutputFormat] = useState<'html' | 'pdf'>('html');
+  const [groqApiKey, setGroqApiKey] = useState('');
+  const [markdown, set_markdown] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [timestamp, setTimestamp] = useState<Date | undefined>();
+
+  const inputStyle = {
+    border: '1px solid var(--color-border-subtle)',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '14px',
+    color: 'var(--color-text-primary)',
+    background: 'var(--color-surface)',
+    width: '100%',
+    outline: 'none',
+    transition: 'box-shadow 150ms ease',
+  } as React.CSSProperties;
+
+  const labelStyle = {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: 'var(--color-text-primary)',
+    marginBottom: '6px',
+    display: 'block',
+  } as React.CSSProperties;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setIsError(false);
-    await new Promise((r) => setTimeout(r, 800));
-    setResult(
-      'This agent is coming soon! Check back soon or ⭐ star the GitHub repo to get notified when it launches.'
-    );
-    setTimestamp(new Date());
-    setLoading(false);
-  }
 
-  const radioLabelStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: 'var(--color-text-primary)',
-  };
+    try {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${BASE_URL}/api/v1/agents/markdown-converter/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groq_api_key: groqApiKey,
+          input1: markdown,
+          input2: ''
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.detail || data.detail || 'Request failed');
+      
+      setResult(data.data.result);
+      setIsError(false);
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : 'An unexpected error occurred.');
+      setIsError(true);
+    } finally {
+      setTimestamp(new Date());
+      setLoading(false);
+    }
+  }
 
   return (
     <AgentPageLayout agent={agent}>
-      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
-        {/* Markdown input */}
-        <div className='flex flex-col gap-1.5'>
-          <label
-            htmlFor='markdown-input'
-            className='text-sm font-medium'
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Markdown Input
-          </label>
+      <form onSubmit={handleSubmit} className='flex flex-col gap-5'>
+        
+        <fieldset className="flex flex-col gap-4 p-4 rounded-lg" style={{ border: "1px solid var(--color-border-subtle)" }}>
+          <legend className="px-1 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>API Keys</legend>
+          <div>
+            <label htmlFor="input-groq-api-key" style={labelStyle}>Groq API Key</label>
+            <input
+              id="input-groq-api-key"
+              type="password"
+              placeholder="gsk_..."
+              value={groqApiKey}
+              onChange={(e) => setGroqApiKey(e.target.value)}
+              style={inputStyle}
+              required
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Get your key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--color-primary)" }}>console.groq.com</a>
+            </p>
+          </div>
+        </fieldset>
+
+        <div>
+          <label htmlFor="input1" style={labelStyle}>Markdown Content</label>
           <textarea
-            id='markdown-input'
-            className='w-full rounded-lg p-3 text-sm font-mono transition-shadow'
-            style={{
-              border: '1px solid var(--color-border-subtle)',
-              minHeight: '160px',
-              fontSize: '13px',
-              color: 'var(--color-text-primary)',
-              background: 'var(--color-surface)',
-              resize: 'vertical',
-            }}
-            placeholder={'# My Document\n\nPaste your Markdown here...'}
-            value={markdownInput}
-            onChange={(e) => setMarkdownInput(e.target.value)}
+            id="input1"
+            placeholder="# Heading
+
+Some text..."
+            value={markdown}
+            onChange={(e) => set_markdown(e.target.value)}
+            style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }}
             required
-            spellCheck={false}
           />
         </div>
 
-        {/* Output format toggle */}
-        <div className='flex flex-col gap-1.5'>
-          <span
-            className='text-sm font-medium'
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Output format
-          </span>
-          <div
-            className='flex gap-4 p-3 rounded-lg'
-            style={{
-              border: '1px solid var(--color-border-subtle)',
-              background: 'var(--color-surface)',
-            }}
-            role='radiogroup'
-            aria-label='Output format'
-          >
-            <label style={radioLabelStyle}>
-              <input
-                type='radio'
-                name='output-format'
-                value='html'
-                checked={outputFormat === 'html'}
-                onChange={() => setOutputFormat('html')}
-                style={{ accentColor: 'var(--color-primary)' }}
-              />
-              <span>HTML</span>
-              <span
-                className='text-xs'
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                — clean, styled markup
-              </span>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type='radio'
-                name='output-format'
-                value='pdf'
-                checked={outputFormat === 'pdf'}
-                onChange={() => setOutputFormat('pdf')}
-                style={{ accentColor: 'var(--color-primary)' }}
-              />
-              <span>PDF</span>
-              <span
-                className='text-xs'
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                — formatted document
-              </span>
-            </label>
-          </div>
-        </div>
+        
 
         <button
           type='submit'
-          disabled={loading || !markdownInput.trim()}
+          disabled={loading || !groqApiKey.trim() || !markdown.trim()}
+          suppressHydrationWarning
           className='px-6 py-3 rounded-lg font-medium text-sm transition-all btn-scale self-end disabled:opacity-50 w-full sm:w-auto'
           style={{
             background: 'var(--color-primary)',
@@ -141,8 +128,8 @@ export default function MarkdownConverterPage() {
           isError={isError}
           isCode={true}
           timestamp={timestamp}
-          downloadFilename='output.html'
-          onRetry={() => handleSubmit(new Event('submit') as any)}
+          downloadFilename='result.md'
+          onRetry={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
         />
       )}
     </AgentPageLayout>

@@ -83,8 +83,8 @@ export default function ISOAgentPage() {
     setInput("");
     setLoading(true);
 
-    const userId = `user-${Date.now()}`;
-    const assistantId = `assistant-${Date.now()}`;
+    const userId = `user-${crypto.randomUUID()}`;
+    const assistantId = `assistant-${crypto.randomUUID()}`;
 
     setMessages((prev) => [
       ...prev,
@@ -109,7 +109,7 @@ export default function ISOAgentPage() {
     ]);
 
     try {
-      const res = await fetch("http://localhost:8000/iso/chat", {
+      const res = await fetch("http://localhost:8000/api/v1/agents/iso/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -279,6 +279,7 @@ export default function ISOAgentPage() {
                       key={s}
                       onClick={() => sendMessage(s)}
                       disabled={!groqApiKey.trim() || loading}
+                      suppressHydrationWarning
                       className="text-xs px-3 py-1.5 rounded-full transition-all btn-scale disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{
                         border: "1px solid var(--color-border-subtle)",
@@ -433,6 +434,7 @@ export default function ISOAgentPage() {
                 }
               }}
               disabled={!groqApiKey.trim() || loading}
+              suppressHydrationWarning
               className="flex-1"
               style={{
                 border: "1px solid var(--color-border-subtle)",
@@ -448,6 +450,7 @@ export default function ISOAgentPage() {
               id="iso-send-btn"
               onClick={() => sendMessage()}
               disabled={!groqApiKey.trim() || !input.trim() || loading}
+              suppressHydrationWarning
               className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all btn-scale disabled:opacity-50"
               style={{ background: "var(--color-primary)", color: "#fff" }}
             >

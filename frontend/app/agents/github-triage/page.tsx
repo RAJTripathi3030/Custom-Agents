@@ -133,7 +133,7 @@ export default function GitHubTriagePage() {
           isError={isError}
           timestamp={timestamp}
           downloadFilename='triage-report.txt'
-          onRetry={() => handleSubmit(new Event('submit') as any)}
+          onRetry={() => handleSubmit(new Event("submit") as unknown as React.FormEvent)}
         />
       )}
     </AgentPageLayout>

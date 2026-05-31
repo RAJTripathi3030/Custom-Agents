@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { AgentCard } from "@/components/AgentCard";
 import { agents, allCategories, type AgentCategory } from "@/lib/agentRegistry";
@@ -42,18 +42,16 @@ export default function Home() {
   const featuredAgents = agents.filter((a) => a.status === "active").slice(0, 3);
 
   // All agents filtered by search + category
-  const filteredAgents = useMemo(() => {
-    return agents.filter((agent) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesCategory =
-        selectedCategory === "All" || agent.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchQuery, selectedCategory]);
+  const filteredAgents = agents.filter((agent) => {
+    const matchesSearch =
+      searchQuery === "" ||
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory =
+      selectedCategory === "All" || agent.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div>
@@ -85,21 +83,29 @@ export default function Home() {
         {/* Google-style search bar */}
         <div className="w-full max-w-xl relative">
           <Search
-            size={20}
-            className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: "var(--color-text-muted)" }}
+            size={18}
+            className="absolute top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ left: "20px", color: "var(--color-text-muted)" }}
           />
           <input
             id="agent-search"
             type="search"
-            className="search-input pl-12"
+            className="search-input"
+            style={{ paddingLeft: "48px" }}
             placeholder="Search agents — try 'scrape', 'SQL', 'regex'..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("agents")?.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
             aria-label="Search agents"
             autoComplete="off"
           />
         </div>
+
 
         <div className="flex items-center gap-4 mt-6 text-sm" style={{ color: "var(--color-text-secondary)" }}>
           <a href="#featured" className="hover:underline" style={{ color: "var(--color-primary)" }}>

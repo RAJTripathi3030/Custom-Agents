@@ -5,63 +5,110 @@ import { AgentPageLayout } from '@/components/AgentPageLayout';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { agents } from '@/lib/agentRegistry';
 
-export default function ColorPalettePage() {
+export default function AgentPage() {
   const agent = agents.find((a) => a.id === 'color-palette')!;
-  const [brandDescription, setBrandDescription] = useState('');
+  const [groqApiKey, setGroqApiKey] = useState('');
+  const [brand, set_brand] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [timestamp, setTimestamp] = useState<Date | undefined>();
+
+  const inputStyle = {
+    border: '1px solid var(--color-border-subtle)',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '14px',
+    color: 'var(--color-text-primary)',
+    background: 'var(--color-surface)',
+    width: '100%',
+    outline: 'none',
+    transition: 'box-shadow 150ms ease',
+  } as React.CSSProperties;
+
+  const labelStyle = {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: 'var(--color-text-primary)',
+    marginBottom: '6px',
+    display: 'block',
+  } as React.CSSProperties;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setIsError(false);
-    await new Promise((r) => setTimeout(r, 800));
-    setResult(
-      'This agent is coming soon! Check back soon or ⭐ star the GitHub repo to get notified when it launches.'
-    );
-    setTimestamp(new Date());
-    setLoading(false);
+
+    try {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${BASE_URL}/api/v1/agents/color-palette/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groq_api_key: groqApiKey,
+          input1: brand,
+          input2: ''
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.detail || data.detail || 'Request failed');
+      
+      setResult(data.data.result);
+      setIsError(false);
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : 'An unexpected error occurred.');
+      setIsError(true);
+    } finally {
+      setTimestamp(new Date());
+      setLoading(false);
+    }
   }
 
   return (
     <AgentPageLayout agent={agent}>
-      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
-        {/* Brand / mood description */}
-        <div className='flex flex-col gap-1.5'>
-          <label
-            htmlFor='brand-description-input'
-            className='text-sm font-medium'
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Describe your brand or mood
-          </label>
-          <textarea
-            id='brand-description-input'
-            className='w-full rounded-lg p-3 text-sm transition-shadow'
-            style={{
-              border: '1px solid var(--color-border-subtle)',
-              minHeight: '120px',
-              fontSize: '14px',
-              color: 'var(--color-text-primary)',
-              background: 'var(--color-surface)',
-              resize: 'vertical',
-            }}
-            placeholder='e.g. A modern fintech startup — trustworthy, clean, professional, with a hint of energy'
-            value={brandDescription}
-            onChange={(e) => setBrandDescription(e.target.value)}
+      <form onSubmit={handleSubmit} className='flex flex-col gap-5'>
+        
+        <fieldset className="flex flex-col gap-4 p-4 rounded-lg" style={{ border: "1px solid var(--color-border-subtle)" }}>
+          <legend className="px-1 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>API Keys</legend>
+          <div>
+            <label htmlFor="input-groq-api-key" style={labelStyle}>Groq API Key</label>
+            <input
+              id="input-groq-api-key"
+              type="password"
+              placeholder="gsk_..."
+              value={groqApiKey}
+              onChange={(e) => setGroqApiKey(e.target.value)}
+              style={inputStyle}
+              required
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Get your key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--color-primary)" }}>console.groq.com</a>
+            </p>
+          </div>
+        </fieldset>
+
+        <div>
+          <label htmlFor="input1" style={labelStyle}>Brand Personality / Mood</label>
+          <input
+            id="input1"
+            placeholder="e.g. Playful, vibrant, for a kids app."
+            value={brand}
+            onChange={(e) => set_brand(e.target.value)}
+            style={{ ...inputStyle, height: '48px' }}
             required
           />
-          <p className='text-xs mt-0.5' style={{ color: 'var(--color-text-secondary)' }}>
-            Describe your brand personality, industry, or the mood you want to convey.
-          </p>
         </div>
+
+        
 
         <button
           type='submit'
-          disabled={loading || !brandDescription.trim()}
+          disabled={loading || !groqApiKey.trim() || !brand.trim()}
+          suppressHydrationWarning
           className='px-6 py-3 rounded-lg font-medium text-sm transition-all btn-scale self-end disabled:opacity-50 w-full sm:w-auto'
           style={{
             background: 'var(--color-primary)',
@@ -77,9 +124,10 @@ export default function ColorPalettePage() {
         <ResultsPanel
           content={result}
           isError={isError}
+          isCode={true}
           timestamp={timestamp}
-          downloadFilename='palette.txt'
-          onRetry={() => handleSubmit(new Event('submit') as any)}
+          downloadFilename='result.md'
+          onRetry={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
         />
       )}
     </AgentPageLayout>

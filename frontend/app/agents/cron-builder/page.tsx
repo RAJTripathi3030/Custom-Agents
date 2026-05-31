@@ -5,62 +5,110 @@ import { AgentPageLayout } from '@/components/AgentPageLayout';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { agents } from '@/lib/agentRegistry';
 
-export default function CronBuilderPage() {
+export default function AgentPage() {
   const agent = agents.find((a) => a.id === 'cron-builder')!;
-  const [schedule, setSchedule] = useState('');
+  const [groqApiKey, setGroqApiKey] = useState('');
+  const [schedule, set_schedule] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [timestamp, setTimestamp] = useState<Date | undefined>();
+
+  const inputStyle = {
+    border: '1px solid var(--color-border-subtle)',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '14px',
+    color: 'var(--color-text-primary)',
+    background: 'var(--color-surface)',
+    width: '100%',
+    outline: 'none',
+    transition: 'box-shadow 150ms ease',
+  } as React.CSSProperties;
+
+  const labelStyle = {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: 'var(--color-text-primary)',
+    marginBottom: '6px',
+    display: 'block',
+  } as React.CSSProperties;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setIsError(false);
-    await new Promise((r) => setTimeout(r, 800));
-    setResult(
-      'This agent is coming soon! Check back soon or ⭐ star the GitHub repo to get notified when it launches.'
-    );
-    setTimestamp(new Date());
-    setLoading(false);
+
+    try {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${BASE_URL}/api/v1/agents/cron-builder/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groq_api_key: groqApiKey,
+          input1: schedule,
+          input2: ''
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.detail || data.detail || 'Request failed');
+      
+      setResult(data.data.result);
+      setIsError(false);
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : 'An unexpected error occurred.');
+      setIsError(true);
+    } finally {
+      setTimestamp(new Date());
+      setLoading(false);
+    }
   }
 
   return (
     <AgentPageLayout agent={agent}>
-      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
-        {/* Schedule description */}
-        <div className='flex flex-col gap-1.5'>
-          <label
-            htmlFor='schedule-input'
-            className='text-sm font-medium'
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Describe your schedule
-          </label>
+      <form onSubmit={handleSubmit} className='flex flex-col gap-5'>
+        
+        <fieldset className="flex flex-col gap-4 p-4 rounded-lg" style={{ border: "1px solid var(--color-border-subtle)" }}>
+          <legend className="px-1 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>API Keys</legend>
+          <div>
+            <label htmlFor="input-groq-api-key" style={labelStyle}>Groq API Key</label>
+            <input
+              id="input-groq-api-key"
+              type="password"
+              placeholder="gsk_..."
+              value={groqApiKey}
+              onChange={(e) => setGroqApiKey(e.target.value)}
+              style={inputStyle}
+              required
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Get your key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--color-primary)" }}>console.groq.com</a>
+            </p>
+          </div>
+        </fieldset>
+
+        <div>
+          <label htmlFor="input1" style={labelStyle}>Schedule Description</label>
           <input
-            id='schedule-input'
-            type='text'
-            className='w-full rounded-lg p-3 text-sm transition-shadow'
-            style={{
-              border: '1px solid var(--color-border-subtle)',
-              fontSize: '14px',
-              color: 'var(--color-text-primary)',
-              background: 'var(--color-surface)',
-            }}
-            placeholder='e.g. Every weekday at 9am, or on the 1st of every month at midnight'
+            id="input1"
+            placeholder="e.g. every weekday at 9am"
             value={schedule}
-            onChange={(e) => setSchedule(e.target.value)}
+            onChange={(e) => set_schedule(e.target.value)}
+            style={{ ...inputStyle, height: '48px' }}
             required
           />
-          <p className='text-xs mt-0.5' style={{ color: 'var(--color-text-secondary)' }}>
-            Describe your schedule in plain English — the agent will generate the cron expression.
-          </p>
         </div>
+
+        
 
         <button
           type='submit'
-          disabled={loading || !schedule.trim()}
+          disabled={loading || !groqApiKey.trim() || !schedule.trim()}
+          suppressHydrationWarning
           className='px-6 py-3 rounded-lg font-medium text-sm transition-all btn-scale self-end disabled:opacity-50 w-full sm:w-auto'
           style={{
             background: 'var(--color-primary)',
@@ -76,9 +124,10 @@ export default function CronBuilderPage() {
         <ResultsPanel
           content={result}
           isError={isError}
+          isCode={true}
           timestamp={timestamp}
-          downloadFilename='cron.txt'
-          onRetry={() => handleSubmit(new Event('submit') as any)}
+          downloadFilename='result.md'
+          onRetry={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
         />
       )}
     </AgentPageLayout>

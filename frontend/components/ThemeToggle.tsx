@@ -9,13 +9,14 @@ export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
   if (!mounted) {
     // Avoid hydration mismatch — render a placeholder with same dimensions
     return (
-      <Button variant="outline" size="sm" className="w-9 h-9" disabled>
+      <Button variant="outline" size="sm" className="w-9 h-9" aria-hidden="true">
         <span className="sr-only">Toggle theme</span>
       </Button>
     );
