@@ -388,11 +388,18 @@ export default function Home() {
             {steps.map((step, i) => (
               <div
                 key={i}
-                className="flex flex-col pt-10 pb-6"
+                className={[
+                  "flex flex-col pt-10 pb-6",
+                  // Mobile: horizontal rule above steps 2 & 3 (stacked layout)
+                  // Desktop (sm+): vertical rule to the left of steps 2 & 3 (columns)
+                  i > 0
+                    ? "border-t sm:border-t-0 sm:border-l"
+                    : "",
+                ].join(" ")}
                 style={{
-                  paddingRight: i < steps.length - 1 ? "40px" : 0,
-                  paddingLeft: i > 0 ? "40px" : 0,
-                  borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.12)" : "none",
+                  borderColor: "rgba(255,255,255,0.12)",
+                  paddingRight: i < steps.length - 1 ? "clamp(16px, 4vw, 40px)" : 0,
+                  paddingLeft: i > 0 ? "clamp(16px, 4vw, 40px)" : 0,
                 }}
               >
                 <div
@@ -435,11 +442,14 @@ export default function Home() {
             {trustFeatures.map((feature, i) => (
               <div
                 key={i}
-                className="flex flex-col gap-3 py-6"
+                className={[
+                  "flex flex-col gap-3 py-6",
+                  i > 0 ? "border-t md:border-t-0 md:border-l" : "",
+                ].join(" ")}
                 style={{
-                  paddingRight: i < trustFeatures.length - 1 ? "48px" : 0,
-                  paddingLeft: i > 0 ? "48px" : 0,
-                  borderLeft: i > 0 ? "1px solid var(--color-hairline)" : "none",
+                  borderColor: "var(--color-hairline)",
+                  paddingRight: i < trustFeatures.length - 1 ? "clamp(16px, 4vw, 48px)" : 0,
+                  paddingLeft: i > 0 ? "clamp(16px, 4vw, 48px)" : 0,
                 }}
               >
                 <div style={{ color: "var(--color-ink)", opacity: 0.6 }}>
