@@ -26,39 +26,53 @@ export function AgentCard({ agent }: AgentCardProps) {
   const card = (
     <article
       className={`agent-card flex flex-col h-full relative ${
-        isDisabled ? "opacity-70 cursor-default" : ""
+        isDisabled ? "opacity-60 cursor-default" : ""
       }`}
       aria-label={`${agent.name} — ${agent.status}`}
     >
       {/* Corner badge */}
       {cornerBadge && (
-        <div className="absolute top-3 right-3">{cornerBadge}</div>
+        <div className="absolute top-4 right-4">{cornerBadge}</div>
       )}
 
-      {/* Icon + Name row */}
-      <div className="flex items-start gap-3 mb-3">
-        <span className="text-3xl leading-none" role="img" aria-label={agent.name}>
+      {/* Icon */}
+      <div className="mb-5">
+        <span
+          className="text-3xl leading-none"
+          role="img"
+          aria-label={agent.name}
+          style={{ display: "inline-block" }}
+        >
           {agent.icon}
         </span>
-        <div className="flex-1 min-w-0">
-          <h3
-            className="font-semibold leading-tight mb-1 truncate"
-            style={{ fontSize: "18px", color: "var(--color-text-primary)" }}
-          >
-            {agent.name}
-          </h3>
-          {statusBadge}
-        </div>
       </div>
 
-      {/* Description — max 2 lines */}
+      {/* Name + status */}
+      <div className="mb-3">
+        <h3
+          style={{
+            fontFamily: "var(--font-display, 'Space Grotesk'), 'Inter', ui-sans-serif",
+            fontSize: "18px",
+            fontWeight: 500,
+            lineHeight: 1.2,
+            letterSpacing: "-0.01em",
+            color: "var(--color-ink)",
+            marginBottom: "8px",
+          }}
+        >
+          {agent.name}
+        </h3>
+        {statusBadge}
+      </div>
+
+      {/* Description */}
       <p
-        className="flex-1 mb-4 overflow-hidden"
+        className="flex-1 mb-6 overflow-hidden"
         style={{
           fontSize: "14px",
           color: "var(--color-text-secondary)",
           display: "-webkit-box",
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
           WebkitBoxOrient: "vertical",
           lineHeight: "1.5",
         }}
@@ -67,17 +81,27 @@ export function AgentCard({ agent }: AgentCardProps) {
       </p>
 
       {/* Footer row */}
-      <div className="flex items-center justify-between mt-auto pt-3"
-        style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
-        <div className="flex items-center gap-1.5">
-          <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
-            ⏱ {agent.estimatedTime}
-          </span>
-        </div>
+      <div
+        className="flex items-center justify-between mt-auto pt-4"
+        style={{ borderTop: "1px solid var(--color-card-border)" }}
+      >
+        {/* Estimated time — mono label style */}
+        <span
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "11px",
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: "var(--color-text-muted)",
+          }}
+        >
+          {agent.estimatedTime}
+        </span>
+
         {!isDisabled && (
           <span
-            className="text-sm font-medium transition-colors"
-            style={{ color: "var(--color-primary)" }}
+            className="btn-pill-outline"
+            style={{ fontSize: "12px", padding: "4px 12px" }}
           >
             Try it →
           </span>
@@ -89,31 +113,39 @@ export function AgentCard({ agent }: AgentCardProps) {
   if (isDisabled) return card;
 
   return (
-    <Link href={agent.href} className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg">
+    <Link
+      href={agent.href}
+      className="block h-full focus-visible:outline-none"
+      style={{ borderRadius: "var(--radius-sm)" }}
+    >
       {card}
     </Link>
   );
 }
 
-// Skeleton version matching exact card shape per §4.5
+// Skeleton version matching exact card shape
 export function AgentCardSkeleton() {
   return (
     <div className="agent-card flex flex-col h-full" aria-hidden="true">
-      <div className="flex items-start gap-3 mb-3">
-        <div className="skeleton w-8 h-8 rounded-md shrink-0" />
-        <div className="flex-1 flex flex-col gap-2">
-          <div className="skeleton h-5 w-3/4 rounded" />
-          <div className="skeleton h-4 w-16 rounded-full" />
-        </div>
+      {/* Icon placeholder */}
+      <div className="skeleton w-8 h-8 rounded mb-5" />
+      {/* Name */}
+      <div className="skeleton h-5 w-2/3 rounded mb-2" />
+      {/* Badge */}
+      <div className="skeleton h-4 w-16 rounded-full mb-3" />
+      {/* Description lines */}
+      <div className="flex-1 flex flex-col gap-2 mb-6">
+        <div className="skeleton h-3.5 w-full rounded" />
+        <div className="skeleton h-3.5 w-5/6 rounded" />
+        <div className="skeleton h-3.5 w-4/6 rounded" />
       </div>
-      <div className="flex-1 flex flex-col gap-1.5 mb-4">
-        <div className="skeleton h-4 w-full rounded" />
-        <div className="skeleton h-4 w-4/5 rounded" />
-      </div>
-      <div className="flex items-center justify-between pt-3"
-        style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
-        <div className="skeleton h-3 w-12 rounded" />
-        <div className="skeleton h-4 w-14 rounded" />
+      {/* Footer */}
+      <div
+        className="flex items-center justify-between pt-4"
+        style={{ borderTop: "1px solid var(--color-card-border)" }}
+      >
+        <div className="skeleton h-3 w-16 rounded" />
+        <div className="skeleton h-6 w-16 rounded-full" />
       </div>
     </div>
   );

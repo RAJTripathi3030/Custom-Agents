@@ -94,8 +94,12 @@ export function AgentPageLayout({ agent, children }: AgentPageLayoutProps) {
                 key={tag}
                 className="text-xs px-2 py-0.5 rounded"
                 style={{
-                  background: "var(--color-primary-light, #e8f0fe)",
-                  color: "var(--color-primary)",
+                  background: "var(--color-primary-light, #1a2233)",
+                  color: "var(--color-action-blue)",
+                  fontFamily: "'JetBrains Mono', monospace",
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  fontSize: "10px",
                 }}
               >
                 {tag}
